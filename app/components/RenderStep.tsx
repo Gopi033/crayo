@@ -11,6 +11,7 @@ interface RenderStepProps {
   voice: string;
   captionStyle: CaptionStyle;
   captionFont: CaptionFont;
+  speakingRate?: number;
   onBack: () => void;
   onReset: () => void;
 }
@@ -23,6 +24,7 @@ export default function RenderStep({
   voice,
   captionStyle,
   captionFont,
+  speakingRate,
   onBack,
   onReset,
 }: RenderStepProps) {
@@ -45,6 +47,7 @@ export default function RenderStep({
           voice,
           captionStyle,
           font: captionFont,
+          rate: speakingRate ? `+${speakingRate}%` : undefined,
         }),
       });
 
@@ -102,6 +105,12 @@ export default function RenderStep({
             <p className="text-[var(--muted-foreground)]">Font</p>
             <p className="font-medium">{captionFont}</p>
           </div>
+          {speakingRate ? (
+            <div>
+              <p className="text-[var(--muted-foreground)]">Speed</p>
+              <p className="font-medium">+{speakingRate}% faster</p>
+            </div>
+          ) : null}
         </div>
       </div>
 

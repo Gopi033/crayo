@@ -23,6 +23,7 @@ export default function Home() {
   const [selectedVoice, setSelectedVoice] = useState("");
   const [captionStyle, setCaptionStyle] = useState<CaptionStyle>("classic");
   const [captionFont, setCaptionFont] = useState<CaptionFont>("Arial Black");
+  const [speakingRate, setSpeakingRate] = useState(0);
 
   const reset = () => {
     setStep(1);
@@ -31,6 +32,7 @@ export default function Home() {
     setSelectedVoice("");
     setCaptionStyle("classic");
     setCaptionFont("Arial Black");
+    setSpeakingRate(0);
   };
 
   return (
@@ -138,9 +140,11 @@ export default function Home() {
               selectedVoice={selectedVoice}
               captionStyle={captionStyle}
               captionFont={captionFont}
+              speakingRate={speakingRate}
               onVoiceChange={setSelectedVoice}
               onCaptionStyleChange={setCaptionStyle}
               onFontChange={setCaptionFont}
+              onSpeakingRateChange={setSpeakingRate}
               story={story}
               onNext={() => setStep(4)}
               onBack={() => setStep(2)}
@@ -153,6 +157,7 @@ export default function Home() {
               voice={selectedVoice}
               captionStyle={captionStyle}
               captionFont={captionFont}
+              speakingRate={speakingRate}
               onBack={() => setStep(3)}
               onReset={reset}
             />

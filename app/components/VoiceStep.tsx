@@ -17,9 +17,11 @@ interface VoiceStepProps {
   selectedVoice: string;
   captionStyle: CaptionStyle;
   captionFont: CaptionFont;
+  speakingRate: number;
   onVoiceChange: (voice: string) => void;
   onCaptionStyleChange: (style: CaptionStyle) => void;
   onFontChange: (font: CaptionFont) => void;
+  onSpeakingRateChange: (value: number) => void;
   story: string;
   onNext: () => void;
   onBack: () => void;
@@ -56,9 +58,11 @@ export default function VoiceStep({
   selectedVoice,
   captionStyle,
   captionFont,
+  speakingRate,
   onVoiceChange,
   onCaptionStyleChange,
   onFontChange,
+  onSpeakingRateChange,
   story,
   onNext,
   onBack,
@@ -100,6 +104,7 @@ export default function VoiceStep({
         body: JSON.stringify({
           text: story.slice(0, 100) || "Hello! This is a preview of this voice.",
           voice: voiceName,
+          rate: speakingRate ? `+${speakingRate}%` : undefined,
         }),
       });
       if (!res.ok) throw new Error("Preview failed");
@@ -182,6 +187,27 @@ export default function VoiceStep({
               </p>
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Speaking Rate */}
+      <div className="space-y-3">
+        <label className="text-sm font-medium">Speaking Speed</label>
+        <div className="space-y-2">
+          <div className="flex justify-between text-xs text-[var(--muted-foreground)]">
+            <span>Default</span>
+            <span>{speakingRate ? `+${speakingRate}% faster` : "Default"}</span>
+            <span>+50% faster</span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={50}
+            step={5}
+            value={speakingRate}
+            onChange={(e) => onSpeakingRateChange(Number(e.target.value))}
+            className="w-full h-2 bg-[var(--secondary)] rounded-lg appearance-none cursor-pointer accent-[var(--primary)]"
+          />
         </div>
       </div>
 

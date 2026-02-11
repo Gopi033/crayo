@@ -5,13 +5,11 @@ import { synthesizeToFile } from "@/lib/tts";
 import { generateAss } from "@/lib/subtitles";
 import {
   composeVideo,
-  ensureMinimumDuration,
+  getAudioDuration,
   getVideoDuration,
   pickRandomVideoStart,
 } from "@/lib/ffmpeg";
 import type { CaptionStyle, CaptionFont } from "@/lib/subtitles";
-
-const MIN_OUTPUT_DURATION_SECONDS = 90;
 
 const TMP_DIR = path.join(process.cwd(), "tmp");
 const OUTPUT_DIR = path.join(process.cwd(), "output");
@@ -72,9 +70,15 @@ export async function POST(req: NextRequest) {
     const subtitlePath = path.join(TMP_DIR, `${jobId}.ass`);
     const outputPath = path.join(OUTPUT_DIR, `${jobId}.mp4`);
 
+    // Format story: single continuous block (no paragraphs/line breaks) for faster pace
+    const formattedStory = story
+      .replace(/\r?\n+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
     // Step 1: Generate TTS audio + word boundaries
     console.log(`[${jobId}] Generating TTS audio...`);
-    const wordBoundaries = await synthesizeToFile(story, audioPath, {
+    const wordBoundaries = await synthesizeToFile(formattedStory, audioPath, {
       voice,
       rate,
       pitch,
@@ -83,46 +87,37 @@ export async function POST(req: NextRequest) {
       `[${jobId}] TTS done: ${wordBoundaries.length} word boundaries`
     );
 
-    // Step 2: Ensure minimum 90 second output (pad with silence if needed)
-    const { path: finalAudioPath, duration: outputDuration } =
-      await ensureMinimumDuration(audioPath, MIN_OUTPUT_DURATION_SECONDS);
-    if (finalAudioPath !== audioPath) {
-      console.log(`[${jobId}] Audio padded to ${outputDuration}s minimum`);
-    }
-
-    // Step 3: Generate ASS subtitles
+    // Step 2: Generate ASS subtitles (video duration = TTS audio duration, no padding)
     console.log(`[${jobId}] Generating subtitles...`);
     const assContent = generateAss(wordBoundaries, { style: captionStyle, font });
     fs.writeFileSync(subtitlePath, assContent, "utf-8");
 
-    // Step 4: Pick random start point (min 2 min in) for long background videos
+    // Step 3: Pick random start point (min 2 min in) for long background videos
+    const audioDuration = await getAudioDuration(audioPath);
     const videoDuration = await getVideoDuration(bgPath);
     const randomStart = pickRandomVideoStart(
       videoDuration,
-      outputDuration,
+      audioDuration,
       120
     );
     if (randomStart > 0) {
       console.log(`[${jobId}] Starting background at ${Math.round(randomStart)}s`);
     }
 
-    // Step 5: Compose video with FFmpeg (16:9 center-cropped to 9:16, no rotation)
+    // Step 4: Compose video with FFmpeg (16:9 center-cropped to 9:16, no rotation)
     console.log(`[${jobId}] Composing video...`);
     await composeVideo({
       backgroundVideoPath: bgPath,
-      audioPath: finalAudioPath,
+      audioPath,
       subtitlePath,
       outputPath,
       videoStartOffsetSeconds: randomStart,
     });
     console.log(`[${jobId}] Video composed successfully`);
 
-    // Step 6: Clean up temp files
+    // Step 5: Clean up temp files
     try {
       if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath);
-      if (finalAudioPath !== audioPath && fs.existsSync(finalAudioPath)) {
-        fs.unlinkSync(finalAudioPath);
-      }
       fs.unlinkSync(subtitlePath);
     } catch {
       // Non-critical cleanup error

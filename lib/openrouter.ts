@@ -13,12 +13,14 @@ export function getOpenRouterClient() {
   });
 }
 
-export async function generateStory(prompt?: string): Promise<string> {
+export async function generateStory(
+  prompt: string,
+  options?: { wordCount?: number }
+): Promise<string> {
   const client = getOpenRouterClient();
 
   const systemPrompt = `You are a creative storyteller specializing in short, engaging Reddit-style stories for TikTok and Instagram Reels. 
 Write stories that:
-- Are 100-200 words long (perfect for 30-60 second videos)
 - Start with a hook that grabs attention immediately
 - Have a clear beginning, middle, and twist/conclusion
 - Use first person perspective
@@ -26,17 +28,17 @@ Write stories that:
 - Cover topics like relationships, work, family, or unexpected situations
 Do NOT include a title, subreddit name, or any formatting. Just write the story text directly.`;
 
-  const userPrompt =
-    prompt ||
-    "Write me a short, engaging Reddit-style story with a surprising twist ending.";
+  const maxTokens = options?.wordCount
+    ? Math.ceil(options.wordCount * 1.5)
+    : 500;
 
   const response = await client.chat.completions.create({
-    model: "deepseek/deepseek-r1-distill-llama-70b:free",
+    model: "arcee-ai/trinity-large-preview:free",
     messages: [
       { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
+      { role: "user", content: prompt },
     ],
-    max_tokens: 500,
+    max_tokens: maxTokens,
     temperature: 0.9,
   });
 
