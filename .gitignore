@@ -36,3 +36,6 @@ next-env.d.ts
 # output videos
 /output/
 /tmp/
+
+# background videos (add your own to public/backgrounds/)
+/public/backgrounds/*.mp4
