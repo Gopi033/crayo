@@ -13,14 +13,14 @@ export async function POST(req: NextRequest) {
       wordCount = 300,
       keywords = "",
     } = body as {
-      type?: "aita" | "reddit-general";
+      type?: "aita" | "revenge" | "tifu";
       wordCount?: number;
       keywords?: string;
     };
 
-    if (!type || !["aita", "reddit-general"].includes(type)) {
+    if (!type || !["aita", "revenge", "tifu"].includes(type)) {
       return NextResponse.json(
-        { error: "Invalid type. Use 'aita' or 'reddit-general'" },
+        { error: "Invalid type. Use 'aita', 'revenge', or 'tifu'" },
         { status: 400 }
       );
     }
@@ -40,9 +40,13 @@ export async function POST(req: NextRequest) {
       .replace(/\{\{seed_input\}\}/g, keywords.trim() || "empty")
       .replace(/\{\{keywords\}\}/g, keywords.trim() || "empty");
 
-    const story = await generateStory(promptTemplate, { wordCount });
+    const raw = await generateStory(promptTemplate, { wordCount });
+    const genderMatch = raw.match(/^GENDER:\s*(male|female)\s*\n+/i);
+    const gender =
+      genderMatch && genderMatch[1].toLowerCase() === "male" ? "Male" : "Female";
+    const story = genderMatch ? raw.replace(/^GENDER:\s*(male|female)\s*\n+/i, "").trim() : raw;
 
-    return NextResponse.json({ story });
+    return NextResponse.json({ story, gender });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to generate story";

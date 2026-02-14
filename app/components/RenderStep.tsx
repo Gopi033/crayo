@@ -2,11 +2,19 @@
 
 import { useState } from "react";
 
-type CaptionStyle = "classic" | "bold" | "subtitle";
+type CaptionStyle = "classic" | "bold" | "yellow-outline" | "white-outline";
 type CaptionFont = "Impact" | "Arial Black" | "Montserrat" | "Comic Sans MS";
+
+const CAPTION_STYLE_LABELS: Record<CaptionStyle, string> = {
+  classic: "Classic",
+  bold: "Bold",
+  "yellow-outline": "Yellow outline",
+  "white-outline": "White outline",
+};
 
 interface RenderStepProps {
   story: string;
+  storyTitle: string;
   backgroundVideo: string;
   voice: string;
   captionStyle: CaptionStyle;
@@ -20,6 +28,7 @@ type RenderState = "idle" | "rendering" | "done" | "error";
 
 export default function RenderStep({
   story,
+  storyTitle,
   backgroundVideo,
   voice,
   captionStyle,
@@ -84,7 +93,9 @@ export default function RenderStep({
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <p className="text-[var(--muted-foreground)]">Story</p>
-            <p className="font-medium truncate">{story.slice(0, 60)}...</p>
+            <p className="font-medium truncate" title={storyTitle}>
+              {storyTitle || story.slice(0, 60) + "..."}
+            </p>
             <p className="text-xs text-[var(--muted-foreground)]">
               {story.split(/\s+/).filter(Boolean).length} words
             </p>
@@ -99,7 +110,7 @@ export default function RenderStep({
           </div>
           <div>
             <p className="text-[var(--muted-foreground)]">Captions</p>
-            <p className="font-medium capitalize">{captionStyle}</p>
+            <p className="font-medium">{CAPTION_STYLE_LABELS[captionStyle]}</p>
           </div>
           <div>
             <p className="text-[var(--muted-foreground)]">Font</p>

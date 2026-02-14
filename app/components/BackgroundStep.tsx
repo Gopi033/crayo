@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface BackgroundVideo {
   filename: string;
@@ -13,6 +13,87 @@ interface BackgroundStepProps {
   onSelect: (filename: string) => void;
   onNext: () => void;
   onBack: () => void;
+}
+
+function BackgroundVideoCard({
+  video,
+  selected,
+  onSelect,
+}: {
+  video: BackgroundVideo;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const PREVIEW_START_SECONDS = 120; // start preview at 2 minutes
+    const onLoaded = () => {
+      if (el.duration > 0 && !isNaN(el.duration)) {
+        el.currentTime = Math.min(PREVIEW_START_SECONDS, el.duration - 0.5);
+      }
+      el.play().catch(() => {});
+      timeoutId = setTimeout(() => {
+        el.pause();
+        if (el.duration > 0 && !isNaN(el.duration)) {
+          el.currentTime = Math.min(PREVIEW_START_SECONDS, el.duration - 0.5);
+        }
+      }, 500);
+    };
+    el.addEventListener("loadeddata", onLoaded);
+    if (el.readyState >= 2) onLoaded();
+    return () => {
+      el.removeEventListener("loadeddata", onLoaded);
+      if (timeoutId != null) clearTimeout(timeoutId);
+    };
+  }, [video.url]);
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`relative group rounded-xl overflow-hidden border-2 transition-all aspect-[9/16] ${
+        selected
+          ? "border-[var(--primary)] ring-2 ring-[var(--primary)]/30"
+          : "border-[var(--border)] hover:border-[var(--muted-foreground)]"
+      }`}
+    >
+      <video
+        ref={videoRef}
+        src={video.url}
+        muted
+        loop
+        playsInline
+        preload="auto"
+        className="w-full h-full object-cover bg-[var(--card)]"
+        onMouseEnter={(e) => e.currentTarget.play()}
+        onMouseLeave={(e) => {
+          e.currentTarget.pause();
+          e.currentTarget.currentTime = 0;
+        }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+      <div className="absolute bottom-0 left-0 right-0 p-3">
+        <p className="text-white text-sm font-medium truncate">{video.name}</p>
+      </div>
+      {selected && (
+        <div className="absolute top-2 right-2 bg-[var(--primary)] rounded-full p-1">
+          <svg
+            className="w-4 h-4 text-white"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={3}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+      )}
+    </button>
+  );
 }
 
 export default function BackgroundStep({
@@ -100,51 +181,12 @@ export default function BackgroundStep({
       {/* Video grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {videos.map((video) => (
-          <button
+          <BackgroundVideoCard
             key={video.filename}
-            onClick={() => onSelect(video.filename)}
-            className={`relative group rounded-xl overflow-hidden border-2 transition-all aspect-[9/16] ${
-              selected === video.filename
-                ? "border-[var(--primary)] ring-2 ring-[var(--primary)]/30"
-                : "border-[var(--border)] hover:border-[var(--muted-foreground)]"
-            }`}
-          >
-            <video
-              src={video.url}
-              muted
-              loop
-              playsInline
-              className="w-full h-full object-cover"
-              onMouseEnter={(e) => e.currentTarget.play()}
-              onMouseLeave={(e) => {
-                e.currentTarget.pause();
-                e.currentTarget.currentTime = 0;
-              }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-3">
-              <p className="text-white text-sm font-medium truncate">
-                {video.name}
-              </p>
-            </div>
-            {selected === video.filename && (
-              <div className="absolute top-2 right-2 bg-[var(--primary)] rounded-full p-1">
-                <svg
-                  className="w-4 h-4 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={3}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              </div>
-            )}
-          </button>
+            video={video}
+            selected={selected === video.filename}
+            onSelect={() => onSelect(video.filename)}
+          />
         ))}
       </div>
 

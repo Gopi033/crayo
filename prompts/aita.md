@@ -17,6 +17,11 @@ Write ONE complete “Am I the asshole” post that feels authentic, discussion-
 - Invent a fresh, realistic scenario typical of top “Am I the asshole” posts (family, roommates, relationships, weddings, money, boundaries, work, parenting, etc.).
 - Still ensure moral ambiguity and believable stakes.
 
+## OUTPUT FORMAT (REQUIRED)
+- On the very first line, write exactly: GENDER: male  OR  GENDER: female  (the narrator's gender).
+- Then a blank line.
+- Then the full story text.
+
 ## OUTPUT REQUIREMENTS
 - First-person narration ("I" perspective).
 - Start with a title in the format:  

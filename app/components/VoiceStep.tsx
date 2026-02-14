@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import type { CaptionStyle, CaptionFont } from "@/lib/subtitles";
+import { STYLE_PREVIEW_COLORS, AVAILABLE_FONTS } from "@/lib/subtitles";
 
 interface Voice {
   Name: string;
@@ -9,9 +11,6 @@ interface Voice {
   Gender: "Male" | "Female";
   Locale: string;
 }
-
-type CaptionStyle = "classic" | "bold" | "subtitle";
-type CaptionFont = "Impact" | "Arial Black" | "Montserrat" | "Comic Sans MS";
 
 interface VoiceStepProps {
   selectedVoice: string;
@@ -23,36 +22,20 @@ interface VoiceStepProps {
   onFontChange: (font: CaptionFont) => void;
   onSpeakingRateChange: (value: number) => void;
   story: string;
+  storyTitle: string;
+  storytellerGender: "Male" | "Female";
   onNext: () => void;
   onBack: () => void;
 }
 
-const FONT_OPTIONS: { id: CaptionFont; label: string; description: string }[] = [
-  { id: "Impact", label: "Impact", description: "Classic TikTok bold" },
-  { id: "Arial Black", label: "Arial Black", description: "Clean and heavy" },
-  { id: "Montserrat", label: "Montserrat", description: "Modern and sleek" },
-  { id: "Comic Sans MS", label: "Comic Sans", description: "Casual and playful" },
-];
-
 const CAPTION_STYLES: { id: CaptionStyle; name: string; description: string }[] = [
-  {
-    id: "classic",
-    name: "Classic",
-    description: "White text with yellow word highlight, centered",
-  },
-  {
-    id: "bold",
-    name: "Bold",
-    description: "One word at a time, large dramatic pop-in",
-  },
-  {
-    id: "subtitle",
-    name: "Subtitle",
-    description: "Clean bottom subtitles with gold highlight",
-  },
+  { id: "classic", name: "Classic", description: "White + yellow highlight" },
+  { id: "bold", name: "Bold", description: "White + orange highlight" },
+  { id: "yellow-outline", name: "Yellow outline", description: "Yellow text, white outline" },
+  { id: "white-outline", name: "White outline", description: "White text, black outline" },
 ];
 
-const POPULAR_LOCALES = ["en", "de", "fr", "es", "pt", "ja", "ko", "zh"];
+const SAMPLE_WORDS = ["One", "word", "at", "a", "time"];
 
 export default function VoiceStep({
   selectedVoice,
@@ -64,21 +47,32 @@ export default function VoiceStep({
   onFontChange,
   onSpeakingRateChange,
   story,
+  storyTitle,
+  storytellerGender,
   onNext,
   onBack,
 }: VoiceStepProps) {
   const [voices, setVoices] = useState<Voice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [localeFilter, setLocaleFilter] = useState("en");
-  const [genderFilter, setGenderFilter] = useState<"all" | "Male" | "Female">("all");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [previewChunkIndex, setPreviewChunkIndex] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const previewColors = STYLE_PREVIEW_COLORS[captionStyle];
+  const displayWord = SAMPLE_WORDS[previewChunkIndex % SAMPLE_WORDS.length] ?? "One";
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setPreviewChunkIndex((prev) => prev + 1);
+    }, 500);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/tts?locale=${localeFilter}`)
+    fetch("/api/tts")
       .then((r) => r.json())
       .then((data) => {
         if (data.error) setError(data.error);
@@ -86,10 +80,10 @@ export default function VoiceStep({
       })
       .catch(() => setError("Failed to load voices"))
       .finally(() => setLoading(false));
-  }, [localeFilter]);
+  }, []);
 
   const filteredVoices = voices.filter((v) => {
-    if (genderFilter !== "all" && v.Gender !== genderFilter) return false;
+    if (storytellerGender && v.Gender !== storytellerGender) return false;
     if (search && !v.FriendlyName.toLowerCase().includes(search.toLowerCase()))
       return false;
     return true;
@@ -131,6 +125,14 @@ export default function VoiceStep({
         <p className="text-[var(--muted-foreground)] text-sm">
           Pick a narration voice and caption style for your video.
         </p>
+        {storyTitle && (
+          <p className="text-sm font-medium mt-2 truncate" title={storyTitle}>
+            Story: {storyTitle}
+          </p>
+        )}
+        <p className="text-xs text-[var(--muted-foreground)] mt-1">
+          Storyteller: {storytellerGender}
+        </p>
       </div>
 
       {error && (
@@ -142,7 +144,7 @@ export default function VoiceStep({
       {/* Caption Style */}
       <div className="space-y-3">
         <label className="text-sm font-medium">Caption Style</label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {CAPTION_STYLES.map((s) => (
             <button
               key={s.id}
@@ -166,7 +168,7 @@ export default function VoiceStep({
       <div className="space-y-3">
         <label className="text-sm font-medium">Caption Font</label>
         <div className="grid grid-cols-4 gap-2">
-          {FONT_OPTIONS.map((f) => (
+          {AVAILABLE_FONTS.map((f) => (
             <button
               key={f.id}
               onClick={() => onFontChange(f.id)}
@@ -187,6 +189,26 @@ export default function VoiceStep({
               </p>
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Caption Preview */}
+      <div className="space-y-3">
+        <label className="text-sm font-medium">Caption Preview</label>
+        <div
+          className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-8 flex items-center justify-center min-h-[120px]"
+          style={{ background: "linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)" }}
+        >
+          <p
+            className="font-bold text-center text-2xl uppercase tracking-wide transition-all duration-300"
+            style={{
+              fontFamily: captionFont,
+              color: previewColors.highlight,
+              textShadow: "0 0 4px #000, 0 0 8px #000, 2px 2px 0 #000, -1px -1px 0 #000",
+            }}
+          >
+            {displayWord}
+          </p>
         </div>
       </div>
 
@@ -213,40 +235,14 @@ export default function VoiceStep({
 
       {/* Voice Selection */}
       <div className="space-y-3">
-        <label className="text-sm font-medium">Voice</label>
+        <div>
+          <label className="text-sm font-medium">Voice</label>
+          <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
+            {storytellerGender} voices only (US, Canada, UK)
+          </p>
+        </div>
 
-        {/* Filters */}
         <div className="flex gap-2 flex-wrap">
-          <div className="flex gap-1 bg-[var(--secondary)] rounded-lg p-1">
-            {POPULAR_LOCALES.map((loc) => (
-              <button
-                key={loc}
-                onClick={() => setLocaleFilter(loc)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                  localeFilter === loc
-                    ? "bg-[var(--primary)] text-white"
-                    : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-                }`}
-              >
-                {loc.toUpperCase()}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-1 bg-[var(--secondary)] rounded-lg p-1">
-            {(["all", "Male", "Female"] as const).map((g) => (
-              <button
-                key={g}
-                onClick={() => setGenderFilter(g)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                  genderFilter === g
-                    ? "bg-[var(--primary)] text-white"
-                    : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-                }`}
-              >
-                {g === "all" ? "All" : g}
-              </button>
-            ))}
-          </div>
           <input
             type="text"
             placeholder="Search voices..."

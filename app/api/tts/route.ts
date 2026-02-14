@@ -1,16 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getVoices, synthesize } from "@/lib/tts";
 
+/** Allowed voice ShortNames only (Liam, Andrew, Guy | Jenny, Aria, Libby, Michelle, Ava) */
+const ALLOWED_VOICE_SHORT_NAMES = new Set([
+  "en-CA-LiamNeural",       // Male - Canada
+  "en-US-AndrewNeural",      // Male - US
+  "en-US-GuyNeural",         // Male - US
+  "en-US-JennyNeural",       // Female - US
+  "en-US-AriaNeural",        // Female - US
+  "en-GB-LibbyNeural",       // Female - UK
+  "en-US-MichelleNeural",     // Female - US
+  "en-US-AvaNeural",         // Female - US
+]);
+
 /**
- * GET /api/tts?locale=en
- * Returns list of available voices, optionally filtered by locale.
+ * GET /api/tts
+ * Returns list of allowed voices only (8 voices: 3 male, 5 female).
  */
 export async function GET(req: NextRequest) {
   try {
-    const locale = req.nextUrl.searchParams.get("locale") || undefined;
-    const voices = await getVoices(locale);
+    const voices = await getVoices(undefined, ["en-US", "en-CA", "en-GB"]);
+    const filtered = voices.filter((v) => ALLOWED_VOICE_SHORT_NAMES.has(v.ShortName));
 
-    return NextResponse.json({ voices });
+    return NextResponse.json({ voices: filtered });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to get voices";

@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import StoryStep from "./components/StoryStep";
 import BackgroundStep from "./components/BackgroundStep";
 import VoiceStep from "./components/VoiceStep";
 import RenderStep from "./components/RenderStep";
 
-type CaptionStyle = "classic" | "bold" | "subtitle";
+type CaptionStyle = "classic" | "bold" | "yellow-outline" | "white-outline";
 type CaptionFont = "Impact" | "Arial Black" | "Montserrat" | "Comic Sans MS";
 
 const STEPS = [
@@ -24,6 +24,12 @@ export default function Home() {
   const [captionStyle, setCaptionStyle] = useState<CaptionStyle>("classic");
   const [captionFont, setCaptionFont] = useState<CaptionFont>("Arial Black");
   const [speakingRate, setSpeakingRate] = useState(0);
+  const [storytellerGender, setStorytellerGender] = useState<"Male" | "Female">("Female");
+
+  const storyTitle = useMemo(
+    () => story.trim().split("\n")[0]?.trim() || story.slice(0, 80) || "",
+    [story]
+  );
 
   const reset = () => {
     setStep(1);
@@ -33,6 +39,7 @@ export default function Home() {
     setCaptionStyle("classic");
     setCaptionFont("Arial Black");
     setSpeakingRate(0);
+    setStorytellerGender("Female");
   };
 
   return (
@@ -124,6 +131,8 @@ export default function Home() {
             <StoryStep
               story={story}
               onStoryChange={setStory}
+              storytellerGender={storytellerGender}
+              onGenderChange={setStorytellerGender}
               onNext={() => setStep(2)}
             />
           )}
@@ -146,6 +155,8 @@ export default function Home() {
               onFontChange={setCaptionFont}
               onSpeakingRateChange={setSpeakingRate}
               story={story}
+              storyTitle={storyTitle}
+              storytellerGender={storytellerGender}
               onNext={() => setStep(4)}
               onBack={() => setStep(2)}
             />
@@ -153,6 +164,7 @@ export default function Home() {
           {step === 4 && (
             <RenderStep
               story={story}
+              storyTitle={storyTitle}
               backgroundVideo={backgroundVideo}
               voice={selectedVoice}
               captionStyle={captionStyle}

@@ -130,16 +130,26 @@ export async function synthesize(
 }
 
 /**
- * Get available TTS voices, optionally filtered by locale prefix.
+ * Get available TTS voices, optionally filtered by locale prefix or exact locales.
+ * @param localeFilter - optional prefix (e.g. "en") to include all matching locales
+ * @param allowedLocales - optional exact locales (e.g. ["en-US", "en-AU"]) to restrict results
  */
-export async function getVoices(localeFilter?: string): Promise<Voice[]> {
+export async function getVoices(
+  localeFilter?: string,
+  allowedLocales?: string[]
+): Promise<Voice[]> {
   const resp = await fetch(voiceListUrl);
   if (!resp.ok) {
     throw new Error(`Failed to fetch voices: ${resp.status}`);
   }
-  const voices = (await resp.json()) as Voice[];
-  if (!localeFilter) return voices;
-  return voices.filter((v) =>
-    v.Locale.toLowerCase().startsWith(localeFilter.toLowerCase())
-  );
+  let voices = (await resp.json()) as Voice[];
+  if (allowedLocales?.length) {
+    const set = new Set(allowedLocales.map((l) => l.toLowerCase()));
+    voices = voices.filter((v) => set.has(v.Locale.toLowerCase()));
+  } else if (localeFilter) {
+    voices = voices.filter((v) =>
+      v.Locale.toLowerCase().startsWith(localeFilter.toLowerCase())
+    );
+  }
+  return voices;
 }

@@ -2,17 +2,21 @@
 
 import { useState } from "react";
 
-type StoryType = "aita" | "reddit-general";
+type StoryType = "aita" | "revenge" | "tifu";
 
 interface StoryStepProps {
   story: string;
   onStoryChange: (story: string) => void;
+  storytellerGender: "Male" | "Female";
+  onGenderChange: (gender: "Male" | "Female") => void;
   onNext: () => void;
 }
 
 export default function StoryStep({
   story,
   onStoryChange,
+  storytellerGender,
+  onGenderChange,
   onNext,
 }: StoryStepProps) {
   const [storyType, setStoryType] = useState<StoryType>("aita");
@@ -39,6 +43,7 @@ export default function StoryStep({
         throw new Error(data.error ?? "Failed to generate story");
       }
       onStoryChange(data.story ?? "");
+      if (data.gender) onGenderChange(data.gender);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate story");
     } finally {
@@ -73,14 +78,25 @@ export default function StoryStep({
           </button>
           <button
             type="button"
-            onClick={() => setStoryType("reddit-general")}
+            onClick={() => setStoryType("revenge")}
             className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              storyType === "reddit-general"
+              storyType === "revenge"
                 ? "bg-[var(--primary)] text-white"
                 : "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
             }`}
           >
-            General Reddit
+            Revenge
+          </button>
+          <button
+            type="button"
+            onClick={() => setStoryType("tifu")}
+            className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              storyType === "tifu"
+                ? "bg-[var(--primary)] text-white"
+                : "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            TIFU
           </button>
         </div>
       </div>
@@ -131,6 +147,35 @@ export default function StoryStep({
           {error}
         </p>
       )}
+
+      {/* Storyteller gender */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Storyteller</label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => onGenderChange("Male")}
+            className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              storytellerGender === "Male"
+                ? "bg-[var(--primary)] text-white"
+                : "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            Male
+          </button>
+          <button
+            type="button"
+            onClick={() => onGenderChange("Female")}
+            className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              storytellerGender === "Female"
+                ? "bg-[var(--primary)] text-white"
+                : "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            Female
+          </button>
+        </div>
+      </div>
 
       {/* Story textarea */}
       <div className="space-y-2">

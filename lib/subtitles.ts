@@ -1,6 +1,6 @@
 import type { WordBoundary } from "./tts";
 
-export type CaptionStyle = "classic" | "bold" | "subtitle";
+export type CaptionStyle = "classic" | "bold" | "yellow-outline" | "white-outline";
 export type CaptionFont = "Impact" | "Arial Black" | "Montserrat" | "Comic Sans MS";
 
 export const AVAILABLE_FONTS: { id: CaptionFont; label: string; description: string }[] = [
@@ -18,7 +18,7 @@ interface StyleConfig {
   backColor: string;
   outline: number;
   shadow: number;
-  alignment: number; // 5 = center, 2 = bottom center
+  alignment: number; // 5 = center
   marginV: number;
   wordsPerChunk: number;
   bold: boolean;
@@ -27,48 +27,77 @@ interface StyleConfig {
 
 const STYLE_CONFIGS: Record<CaptionStyle, StyleConfig> = {
   classic: {
-    fontSize: 52,
+    fontSize: 90,
     primaryColor: "&H00FFFFFF",   // white
     highlightColor: "&H0000FFFF", // yellow (BGR)
     outlineColor: "&H00000000",   // black
-    backColor: "&H80000000",      // semi-transparent black
-    outline: 5,
-    shadow: 2,
+    backColor: "&H00000000",
+    outline: 6,
+    shadow: 3,
     alignment: 5,                 // center
     marginV: 200,
-    wordsPerChunk: 4,
+    wordsPerChunk: 1,
     bold: true,
-    spacing: 1,
+    spacing: 2,
   },
   bold: {
     fontSize: 90,
     primaryColor: "&H00FFFFFF",   // white
     highlightColor: "&H001478FF", // orange-red (BGR)
     outlineColor: "&H00000000",   // black
-    backColor: "&H00000000",      // transparent (no background box)
+    backColor: "&H00000000",
     outline: 6,
     shadow: 3,
-    alignment: 5,
+    alignment: 5,                 // center
     marginV: 200,
-    wordsPerChunk: 1,             // one word at a time (Hormozi style)
+    wordsPerChunk: 1,
     bold: true,
     spacing: 2,
   },
-  subtitle: {
-    fontSize: 38,
+  "yellow-outline": {
+    fontSize: 90,
+    primaryColor: "&H0000FFFF",   // yellow (BGR)
+    highlightColor: "&H0000FFFF",
+    outlineColor: "&H00FFFFFF",   // white
+    backColor: "&H00000000",
+    outline: 6,
+    shadow: 3,
+    alignment: 5,             // center
+    marginV: 200,
+    wordsPerChunk: 1,
+    bold: true,
+    spacing: 2,
+  },
+  "white-outline": {
+    fontSize: 90,
     primaryColor: "&H00FFFFFF",   // white
-    highlightColor: "&H0000CCFF", // gold (BGR)
+    highlightColor: "&H00FFFFFF",
     outlineColor: "&H00000000",   // black
-    backColor: "&HA0000000",      // darker semi-transparent
-    outline: 3,
-    shadow: 1,
-    alignment: 2,                 // bottom center
-    marginV: 80,
-    wordsPerChunk: 6,
-    bold: false,
-    spacing: 0,
+    backColor: "&H00000000",
+    outline: 6,
+    shadow: 3,
+    alignment: 5,                 // center
+    marginV: 200,
+    wordsPerChunk: 1,
+    bold: true,
+    spacing: 2,
   },
 };
+
+/** CSS hex colors for caption preview: [primary, highlight] */
+export const STYLE_PREVIEW_COLORS: Record<CaptionStyle, { primary: string; highlight: string }> = {
+  classic: { primary: "#FFFFFF", highlight: "#FFFF00" },
+  bold: { primary: "#FFFFFF", highlight: "#FF7814" },
+  "yellow-outline": { primary: "#FFFF00", highlight: "#FFFF00" },
+  "white-outline": { primary: "#FFFFFF", highlight: "#FFFFFF" },
+};
+
+/** Styles with static color (no highlight-to-primary transition) */
+const STATIC_COLOR_STYLES: Set<CaptionStyle> = new Set(["yellow-outline", "white-outline"]);
+
+export function getStyleWordsPerChunk(style: CaptionStyle): number {
+  return STYLE_CONFIGS[style].wordsPerChunk;
+}
 
 function msToAssTime(ms: number): string {
   const totalSeconds = Math.max(0, ms / 1000);
@@ -81,6 +110,11 @@ function msToAssTime(ms: number): string {
 /** Convert milliseconds to ASS karaoke centiseconds */
 function msToKaraoke(ms: number): number {
   return Math.max(1, Math.round(ms / 10));
+}
+
+/** Keep only letters (A-Za-z) and numbers (0-9) for caption display. */
+function sanitizeCaptionText(raw: string): string {
+  return raw.replace(/[^A-Za-z0-9]/g, "");
 }
 
 interface WordChunk {
@@ -120,15 +154,13 @@ export interface GenerateAssOptions {
 /**
  * Generate ASS subtitle content from word boundaries.
  *
- * Classic: 4 words at a time with karaoke fill highlight (smooth color wipe per word).
- * Bold:    1 word at a time, large font, dramatic pop.
- * Subtitle: 6 words at bottom, current word highlighted.
+ * All styles: big, bold, centered, 1 or 2 words at a time with pop-in effect.
+ * Classic: white + yellow highlight. Bold: white + orange-red highlight.
  */
 export function generateAss(
   wordBoundaries: WordBoundary[],
   options: GenerateAssOptions | CaptionStyle = "classic"
 ): string {
-  // Support both old signature (string) and new (object)
   const opts: GenerateAssOptions =
     typeof options === "string" ? { style: options } : options;
 
@@ -159,98 +191,39 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 `;
 
   const chunks = groupWords(wordBoundaries, cfg.wordsPerChunk);
+  const items: { word: WordBoundary; displayText: string }[] = [];
+  for (const chunk of chunks) {
+    for (const word of chunk.words) {
+      const displayText = sanitizeCaptionText(word.text);
+      if (displayText) items.push({ word, displayText });
+    }
+  }
+
   const events: string[] = [];
+  const isStaticColor = STATIC_COLOR_STYLES.has(style);
 
-  if (style === "bold") {
-    // --- BOLD / HORMOZI STYLE ---
-    // One word at a time, full screen, big dramatic text.
-    // Each word appears for its spoken duration (with small padding).
-    for (const chunk of chunks) {
-      for (const word of chunk.words) {
-        const startMs = word.offset;
-        const endMs = word.offset + word.duration + 50; // small tail
-        const start = msToAssTime(startMs);
-        const end = msToAssTime(endMs);
+  for (let i = 0; i < items.length; i++) {
+    const { word, displayText } = items[i];
+    const startMs = word.offset;
+    const endMs = i + 1 < items.length ? items[i + 1].word.offset : word.offset + word.duration + 50;
+    const start = msToAssTime(startMs);
+    const end = msToAssTime(endMs);
 
-        // Pop-in effect: scale from 130% → 100%, flash highlight → white
-        const text =
-          `{\\fscx130\\fscy130\\t(0,100,\\fscx100\\fscy100)` +
-          `\\c${cfg.highlightColor}\\t(80,${Math.min(300, Math.round(word.duration * 0.6))},\\c${cfg.primaryColor})}` +
-          `${word.text.toUpperCase()}`;
+    const scaleEffect = `{\\fscx130\\fscy130\\t(0,100,\\fscx100\\fscy100)}`;
+    const colorEffect = isStaticColor
+      ? ""
+      : `\\c${cfg.highlightColor}\\t(80,${Math.min(300, Math.round(word.duration * 0.6))},\\c${cfg.primaryColor})`;
 
-        events.push(`Dialogue: 0,${start},${end},Default,,0,0,0,,${text}`);
-      }
-    }
-  } else if (style === "classic") {
-    // --- CLASSIC KARAOKE STYLE ---
-    // Show a chunk of words, use \kf (karaoke fill) to smoothly highlight each word.
-    for (const chunk of chunks) {
-      const start = msToAssTime(chunk.startMs);
-      const end = msToAssTime(chunk.endMs + 100); // small tail buffer
+    const text = scaleEffect + colorEffect + displayText.toUpperCase();
 
-      // Build karaoke text: {\kfN}word for each word
-      // \kf = smooth fill from secondary color to primary color over N centiseconds
-      // We want: primary = white, secondary = highlight color
-      // Actually in ASS, \kf fills FROM PrimaryColour TO SecondaryColour
-      // So we set SecondaryColour as the highlight and use \kf for fill
-      const parts: string[] = [];
-      for (const word of chunk.words) {
-        const dur = msToKaraoke(word.duration);
-        // Calculate gap before this word (silence between previous word end and this word start)
-        const wordIdx = chunk.words.indexOf(word);
-        if (wordIdx > 0) {
-          const prevWord = chunk.words[wordIdx - 1];
-          const gap = word.offset - (prevWord.offset + prevWord.duration);
-          if (gap > 50) {
-            // Insert invisible karaoke tag for the gap
-            parts.push(`{\\kf${msToKaraoke(gap)}} `);
-          } else {
-            parts.push(" ");
-          }
-        }
-        parts.push(`{\\kf${dur}}${word.text}`);
-      }
-
-      events.push(
-        `Dialogue: 0,${start},${end},Default,,0,0,0,,${parts.join("")}`
-      );
-    }
-  } else {
-    // --- SUBTITLE STYLE ---
-    // Show chunk of words at bottom, use \kf karaoke fill for smooth word-by-word
-    // gold highlight. One dialogue event per chunk avoids flickering.
-    for (const chunk of chunks) {
-      const start = msToAssTime(chunk.startMs);
-      const end = msToAssTime(chunk.endMs + 100);
-
-      // Build karaoke text with \kf tags, identical to classic approach
-      const parts: string[] = [];
-      for (let wi = 0; wi < chunk.words.length; wi++) {
-        const word = chunk.words[wi];
-        const dur = msToKaraoke(word.duration);
-
-        if (wi > 0) {
-          const prevWord = chunk.words[wi - 1];
-          const gap = word.offset - (prevWord.offset + prevWord.duration);
-          if (gap > 50) {
-            parts.push(`{\\kf${msToKaraoke(gap)}} `);
-          } else {
-            parts.push(" ");
-          }
-        }
-        parts.push(`{\\kf${dur}}${word.text}`);
-      }
-
-      events.push(
-        `Dialogue: 0,${start},${end},Default,,0,0,0,,${parts.join("")}`
-      );
-    }
+    events.push(`Dialogue: 0,${start},${end},Default,,0,0,0,,${text}`);
   }
 
   return header + events.join("\n") + "\n";
 }
 
 function generateEmptyAss(font: string = "Arial Black"): string {
+  const cfg = STYLE_CONFIGS.classic;
   return `[Script Info]
 Title: Crayo Captions
 ScriptType: v4.00+
@@ -260,7 +233,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,${font},52,&H00FFFFFF,&H0000FFFF,&H00000000,&H80000000,1,0,0,0,100,100,1,0,1,5,2,5,40,40,200,1
+Style: Default,${font},${cfg.fontSize},${cfg.primaryColor},${cfg.highlightColor},${cfg.outlineColor},${cfg.backColor},1,0,0,0,100,100,${cfg.spacing},0,1,${cfg.outline},${cfg.shadow},${cfg.alignment},40,40,${cfg.marginV},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
